@@ -3,18 +3,12 @@
 namespace Tests;
 
 use App\User;
-use Faker\Factory;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Xoco70\LaravelTournaments\Models\Category;
 use Xoco70\LaravelTournaments\Models\Championship;
-use Xoco70\LaravelTournaments\Models\ChampionshipSettings;
-use Xoco70\LaravelTournaments\Models\Competitor;
 use Xoco70\LaravelTournaments\Models\Fight;
 use Xoco70\LaravelTournaments\Models\FightersGroup;
 use Xoco70\LaravelTournaments\Models\Tournament;
-use Xoco70\LaravelTournaments\Models\Venue;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -61,44 +55,14 @@ abstract class TestCase extends BaseTestCase
             ->find($this->tournament->championships[1]->id);
     }
 
-    /**
-     * @param $championship
-     * @param $users
-     */
-    public function makeCompetitors($championship, $users)
-    {
-        foreach ($users as $user) {
-            factory(Competitor::class)->create(
-                [
-                    'user_id' => $user->id,
-                    'championship_id' => $championship->id,
-                    'confirmed' => 1,
-                ]
-            );
-        }
-    }
-
     public function generateTreeWithUI($setting)
     {
-        $this->visit('/laravel-tournaments')
-            ->select($setting->hasPreliminary, 'hasPreliminary')
-            ->select($setting->isTeam, 'isTeam')
-            ->select($setting->fightingAreas, 'fightingAreas')
-            ->select(
-                $setting->treeType
-                    ? ChampionshipSettings::SINGLE_ELIMINATION
-                    : ChampionshipSettings::PLAY_OFF, 'treeType'
-            )
-            ->select($setting->preliminaryGroupSize, 'preliminaryGroupSize')
-            ->select($setting->numFighters, 'numFighters');
-
-        $this->press('save');
-
-        return $this;
+        return $this->call('POST', '/championships/' . $this->getChampionship($setting->isTeam)->id . '/trees', $setting->toArray());
     }
 
     /**
      * @param $setting
+     * @param $numGroupsExpected
      * @param $currentTest
      */
     protected function checkGroupsNumber($setting, $numGroupsExpected, $currentTest)
@@ -174,59 +138,5 @@ abstract class TestCase extends BaseTestCase
         $count = Fight::whereIn('fighters_group_id', $groupsId)->count();
 
         return $count;
-    }
-
-    public function initialSeed()
-    {
-        factory(Venue::class, 5)->create();
-
-        Category::create(['name' => 'categories.junior', 'gender' => 'X', 'isTeam' => 0, 'ageCategory' => 5, 'ageMin' => '13', 'ageMax' => '15', 'gradeCategory' => 0]);
-        Category::create(['name' => 'categories.junior_team', 'gender' => 'X', 'isTeam' => 1, 'ageCategory' => 5, 'ageMin' => '13', 'ageMax' => '15', 'gradeCategory' => 0]);
-        Category::create(['name' => 'categories.men_single', 'gender' => 'M', 'isTeam' => 0, 'ageCategory' => 5, 'ageMin' => '18']);
-        Category::create(['name' => 'categories.men_team', 'gender' => 'M', 'isTeam' => 1, 'ageCategory' => 5, 'ageMin' => '18']);
-        Category::create(['name' => 'categories.ladies_single', 'gender' => 'F', 'isTeam' => 0, 'ageCategory' => 5, 'ageMin' => '18']);
-        Category::create(['name' => 'categories.ladies_team', 'gender' => 'F', 'isTeam' => 1, 'ageCategory' => 5, 'ageMin' => '18']);
-        Category::create(['name' => 'categories.master', 'gender' => 'F', 'isTeam' => 0, 'ageCategory' => 5, 'ageMin' => '50', 'gradeMin' => '8']); // 8 = Shodan
-
-        $venues = Venue::all()->pluck('id')->toArray();
-
-        $faker = Factory::create();
-        $dateIni = $faker->dateTimeBetween('now', '+2 weeks')->format('Y-m-d');
-        $user = factory(User::class)->create(['name' => 'user']);
-        Tournament::create([
-            'id' => 1,
-            'slug' => md5(uniqid(rand(), true)),
-            'user_id' => $user->id,
-            'name' => 'Test Tournament',
-            'dateIni' => $dateIni,
-            'dateFin' => $dateIni,
-            'registerDateLimit' => $dateIni,
-            'sport' => 1,
-            'type' => 0,
-            'level_id' => 7,
-            'venue_id' => $faker->randomElement($venues),
-
-        ]);
-
-        factory(Championship::class)->create(['tournament_id' => 1, 'category_id' => 1]);
-        factory(Championship::class)->create(['tournament_id' => 1, 'category_id' => 2]);
-
-        // COMPETITORS
-
-        $championship = Championship::where('tournament_id', 1)->first();
-
-        $users[] = factory(User::class)->create(['name' => 't1']);
-        $users[] = factory(User::class)->create(['name' => 't2']);
-        $users[] = factory(User::class)->create(['name' => 't3']);
-        $users[] = factory(User::class)->create(['name' => 't4']);
-        $users[] = factory(User::class)->create(['name' => 't5']);
-
-        foreach ($users as $user) {
-            factory(Competitor::class)->create([
-                'championship_id' => $championship->id,
-                'user_id' => $user->id,
-                'confirmed' => 1,
-            ]);
-        }
     }
 }
