@@ -24,6 +24,8 @@ install:
   - travis_retry composer install --no-suggest --prefer-dist -n -o
 
 script:
+  - php artisan migrate:fresh
+  - php artisan db:seed --class=LaravelTournamentSeeder --database=sqlite
   - vendor/bin/phpunit
 
 after_script:
